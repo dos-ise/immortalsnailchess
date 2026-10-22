@@ -1,0 +1,94 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationId>net.immortalsnailchess.android</ApplicationId>
+    <ApplicationTitle>Immortal Snail Chess</ApplicationTitle>
+    <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
+    <ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($(ImmortalSnailChessVersionMajor), 10000)), $([MSBuild]::Multiply($(ImmortalSnailChessVersionMinor), 100)))), $(ImmortalSnailChessVersionPatch)))</ApplicationVersion>
+    <RootNamespace>ImmortalSnailChess.Android</RootNamespace>
+    <AssemblyName>ImmortalSnailChess.Android</AssemblyName>
+    <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>
+    <DefineConstants>ANDROID</DefineConstants>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RuntimeIdentifiers>android-arm;android-arm64;android-x64</RuntimeIdentifiers>
+    <!-- Trimming/AOT are disabled by default (see freeserf.net): MSBuild on this
+         machine cannot spawn the out-of-proc task host (MSB4018). -->
+    <PublishTrimmed Condition="'$(PublishTrimmed)' == ''">false</PublishTrimmed>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidLinkMode Condition="'$(PublishTrimmed)' != 'true'">None</AndroidLinkMode>
+    <AndroidLinkTool Condition="'$(PublishTrimmed)' != 'true'">none</AndroidLinkTool>
+    <AndroidEnableProguard>false</AndroidEnableProguard>
+    <AndroidEnableR8>false</AndroidEnableR8>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Windowing.Sdl" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Input.Sdl" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.OpenGL" Version="2.23.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImmortalSnailChess.Core\ImmortalSnailChess.Core.csproj" />
+    <ProjectReference Include="..\ImmortalSnailChess.Renderer\ImmortalSnailChess.Renderer.csproj" />
+  </ItemGroup>
+
+  <!-- 16 KB page-size aligned Silk.NET native libraries (see libs/README.md).
+       Silk.NET.Windowing.Sdl 2.23.0 ships libSDL2.so/libmain.so in its AAR with
+       only 4 KB ELF alignment, which fails on Android 15+/16 devices with 16 KB
+       pages. The AAR's native libraries are added to the AndroidNativeLibrary
+       item group during the _GetLibraryImports target, so the swap must happen
+       in a target that runs after it. Only the 64-bit ABIs are replaced. -->
+  <ItemGroup>
+    <AndroidNativeLibrary Remove="libs\**\*.so" />
+    <AndroidNativeLibrary Include="libs\arm64-v8a\libSDL2.so">
+      <Abi>arm64-v8a</Abi>
+    </AndroidNativeLibrary>
+    <AndroidNativeLibrary Include="libs\arm64-v8a\libmain.so">
+      <Abi>arm64-v8a</Abi>
+    </AndroidNativeLibrary>
+    <AndroidNativeLibrary Include="libs\x86_64\libSDL2.so">
+      <Abi>x86_64</Abi>
+    </AndroidNativeLibrary>
+    <AndroidNativeLibrary Include="libs\x86_64\libmain.so">
+      <Abi>x86_64</Abi>
+    </AndroidNativeLibrary>
+  </ItemGroup>
+
+  <Target Name="ReplaceSilkNativeLibraries" AfterTargets="_GetLibraryImports">
+    <ItemGroup>
+      <AndroidNativeLibrary Remove="**\jni\arm64-v8a\libSDL2.so" />
+      <AndroidNativeLibrary Remove="**\jni\arm64-v8a\libmain.so" />
+      <AndroidNativeLibrary Remove="**\jni\x86_64\libSDL2.so" />
+      <AndroidNativeLibrary Remove="**\jni\x86_64\libmain.so" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The Ultz.Native.SDL package (a transitive dependency of Silk.NET.SDL)
+       ships Linux libSDL2-2.0.so files under runtimes/linux-*/native. The
+       Android build adds every .so from ResolvedFileToPublish to the package,
+       so these Linux libraries end up in the app as dead weight. Remove them. -->
+  <Target Name="ExcludeLinuxSdlLibraries" BeforeTargets="_IncludeNativeSystemLibraries">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="$(NuGetPackageRoot)ultz.native.sdl\**\libSDL2-2.0.so" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Force a fresh Android intermediate output on every build (see freeserf.net,
+       Android.md, Crash 2). Incremental builds can leave the Mono type-registration
+       table stale relative to the generated Java stubs. -->
+  <PropertyGroup>
+    <ForceFreshTypeRegistration Condition="'$(ForceFreshTypeRegistration)' == ''">true</ForceFreshTypeRegistration>
+  </PropertyGroup>
+
+  <Target Name="ForceFreshTypeRegistration"
+          BeforeTargets="_CleanIntermediateIfNeeded"
+          Condition="'$(ForceFreshTypeRegistration)' == 'true'">
+    <Delete Files="$(IntermediateOutputPath)stamp\_CleanIntermediateIfNeeded.stamp" />
+  </Target>
+
+</Project>

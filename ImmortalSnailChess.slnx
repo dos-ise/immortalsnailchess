@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ImmortalSnailChess.Core/ImmortalSnailChess.Core.csproj" />
+    <Project Path="src/ImmortalSnailChess.Renderer/ImmortalSnailChess.Renderer.csproj" />
+    <Project Path="src/ImmortalSnailChess/ImmortalSnailChess.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ImmortalSnailChess.Tests/ImmortalSnailChess.Tests.csproj" />
+  </Folder>
+</Solution>
